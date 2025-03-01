@@ -1,6 +1,7 @@
 const express = require("express");
 const mongoose = require("mongoose");
 const dotenv = require("dotenv");
+<<<<<<< HEAD
 const userRoutes = require('./routes/userRoutes');
 const transactionRoutes = require('./routes/transactionRoutes');  // Import transaction routes
 const budgetRoutes = require('./routes/budgetRoutes');
@@ -8,6 +9,8 @@ const notificationRoutes = require('./routes/notificationRoutes');
 const goalRoutes = require('./routes/goalRoutes');
 const reportRoutes = require('./routes/reportRoutes');
 
+=======
+>>>>>>> 963e406693f10815a5787d6a9358ee93fb5eb4af
 
 dotenv.config(); // Load environment variables
 
@@ -20,6 +23,7 @@ mongoose
   .then(() => console.log("✅ MongoDB Connected Successfully!"))
   .catch((err) => console.error("❌ MongoDB Connection Error:", err));
 
+<<<<<<< HEAD
  app.use('/api/users', userRoutes);
  app.use('/api/transactions', transactionRoutes);
  app.use('/api/budget', budgetRoutes);
@@ -29,6 +33,8 @@ mongoose
 
 
 
+=======
+>>>>>>> 963e406693f10815a5787d6a9358ee93fb5eb4af
 // Sample Schema
 const TestSchema = new mongoose.Schema({ name: String });
 const TestModel = mongoose.model("Test", TestSchema);
@@ -63,6 +69,10 @@ app.get("/get", async (req, res) => {
 });
 
 // Start Server
+<<<<<<< HEAD
 const PORT = process.env.PORT || 9000;
+=======
+const PORT = process.env.PORT || 5000;
+>>>>>>> 963e406693f10815a5787d6a9358ee93fb5eb4af
 app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
 

@@ -1,6 +1,9 @@
 {
   "dependencies": {
+<<<<<<< HEAD
     "bcrypt": "^5.1.1",
+=======
+>>>>>>> 963e406693f10815a5787d6a9358ee93fb5eb4af
     "bcryptjs": "^3.0.2",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
