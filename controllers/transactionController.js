@@ -2,6 +2,30 @@ const Transaction = require('../models/Transaction');
 const Budget = require('../models/Budget'); 
 const User = require('../models/User'); 
 const Notification = require('../models/Notification'); 
+const Goal = require('../models/Goal');
+
+
+
+// Function to convert currency using an external API (e.g., ExchangeRate API)
+const convertCurrency = async (amount, fromCurrency, toCurrency) => {
+  try {
+    const API_KEY = 'f0c2f100eeff2a348e2118fc'; // Replace with your actual API key
+    const url = `https://v6.exchangerate-api.com/v6/${API_KEY}/latest/${fromCurrency}`;
+    
+    const response = await axios.get(url);
+    const exchangeRate = response.data.rates[toCurrency];
+
+    if (!exchangeRate) {
+      throw new Error(`Exchange rate for ${toCurrency} not found.`);
+    }
+
+    return amount * exchangeRate;
+  } catch (error) {
+    console.error("Currency conversion error:", error.message);
+    throw new Error("Failed to fetch exchange rates.");
+  }
+};
+
 
 // Add a new transaction (Regular User)
 const addTransaction = async (req, res) => {
@@ -26,7 +50,7 @@ const addTransaction = async (req, res) => {
 
     await transaction.save();
 
-    // If it's an income, allocate a portion to savings goals
+    // If it's an income transaction, allocate a portion to savings automatically
     if (type === "income") {
       await allocateSavings(req.user.id, amount);
     }
@@ -38,17 +62,18 @@ const addTransaction = async (req, res) => {
   }
 };
 
-// Function to allocate a percentage of income to savings goals
+
 const allocateSavings = async (userId, incomeAmount) => {
   try {
-    const savingsPercentage = 0.10; // Allocate 10% of income
+    const savingsPercentage = 0.10; // Allocate 10% of income to savings
     const savingsAmount = incomeAmount * savingsPercentage;
 
-    // Find user's active financial goals
+    // Find user's active savings goals
     const goals = await Goal.find({ userId });
 
     if (goals.length === 0) {
-      return; // No goals to allocate savings to
+      console.log("No savings goals found for user.");
+      return; // No goals available to allocate savings
     }
 
     const allocationPerGoal = savingsAmount / goals.length;
@@ -58,13 +83,27 @@ const allocateSavings = async (userId, incomeAmount) => {
       await goal.save();
     }
 
-    // Create a notification for the user
+    // Create a savings transaction entry
+    const savingsTransaction = new Transaction({
+      userId,
+      type: "expense", // Treat savings as an expense to track
+      category: "Savings",
+      amount: savingsAmount,
+      date: new Date(),
+      note: "Automated savings allocation",
+    });
+
+    await savingsTransaction.save();
+
+    // Send a notification to the user
     const notification = new Notification({
       userId,
-      message: `An amount of $${savingsAmount.toFixed(2)} has been allocated to your savings goals.`,
+      message: `An amount of $${savingsAmount.toFixed(2)} has been automatically allocated to your savings goals.`,
     });
 
     await notification.save();
+
+    console.log("Savings allocated successfully.");
   } catch (error) {
     console.error("Error allocating savings:", error.message);
   }
@@ -233,4 +272,5 @@ module.exports = {
   getTransactionById,
   getAdminFinancialReport,
   getTransactionsByTag,
+  
 };

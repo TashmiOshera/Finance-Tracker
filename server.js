@@ -7,6 +7,9 @@ const budgetRoutes = require('./routes/budgetRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const goalRoutes = require('./routes/goalRoutes');
 const reportRoutes = require('./routes/reportRoutes');
+const dashboardRoutes = require('./routes/dashboardRoutes');
+const systemSettingsRoutes = require("./routes/settingRoutes");
+
 
 
 dotenv.config(); // Load environment variables
@@ -26,6 +29,8 @@ mongoose
  app.use('/api/reports', reportRoutes);
  app.use('/api/notifications', notificationRoutes); 
  app.use('/api/goals', goalRoutes);
+ app.use('/api', dashboardRoutes);
+ app.use("/api/settings", systemSettingsRoutes);
 
 
 

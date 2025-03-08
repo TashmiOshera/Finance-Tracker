@@ -1,24 +1,22 @@
-const express = require('express');
-const { protect, admin } = require('../middleware/authMiddleware');
-const Setting = require('../models/Setting');
+const express = require("express");
+const {
+  createSystemSettings,
+  getSystemSettings,
+  updateSystemSettings
+} = require("../controllers/systemSettingsController");
+
+const { protect } = require("../middleware/auth");
+const admin = require("../middleware/admin");
 
 const router = express.Router();
 
-// Admin: Update system settings
-router.put('/settings', protect, admin, async (req, res) => {
-  const { categories, limits } = req.body;
+// Create System Settings (Admin Only)
+router.post("/", protect, admin, createSystemSettings);
 
-  let setting = await Setting.findOne();
+// Get System Settings (Authenticated Users)
+router.get("/", protect, getSystemSettings);
 
-  if (!setting) {
-    setting = new Setting({ categories, limits });
-  } else {
-    setting.categories = categories || setting.categories;
-    setting.limits = limits || setting.limits;
-  }
-
-  await setting.save();
-  res.json({ message: 'System settings updated' });
-});
+// Update System Settings (Admin Only)
+router.put("/", protect, admin, updateSystemSettings);
 
 module.exports = router;
