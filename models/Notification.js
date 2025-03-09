@@ -7,10 +7,12 @@ const notificationSchema = new mongoose.Schema({
   limit: { type: Number, required: true },
   totalSpent: { type: Number, required: true },
   balanceAfterSpending: { type: Number, required: true },
-  date: { type: Date, default: Date.now }
+  date: { type: Date, default: Date.now },
+  type: { type: String, enum: ["budget", "recurring"], required: true },
+  recurringDetails: {
+    transactionId: { type: mongoose.Schema.Types.ObjectId, ref: "Transaction" },
+    status: { type: String, enum: ["upcoming", "missed"], default: "upcoming" }
+  }
 });
-
-
-
 
 module.exports = mongoose.model('Notification', notificationSchema);

@@ -1,48 +1,15 @@
-require("dotenv").config(); // Load environment variables
-const axios = require("axios");
+const axios = require("axios");  // Use require instead of import
+const API_KEY = "f0c2f100eeff2a348e2118fc";
+const BASE_CURRENCY = "LKR"; 
 
-const API_KEY = process.env.EXCHANGE_RATE_API_KEY; // Load API key from .env
-
-const convertCurrency = async (amount, fromCurrency, toCurrency) => {
+const getExchangeRate = async (currency) => {
   try {
-    if (!API_KEY) {
-      throw new Error("Missing API key. Please configure EXCHANGE_RATE_API_KEY in the .env file.");
-    }
-
-    if (!amount || isNaN(amount) || amount <= 0) {
-      throw new Error("Invalid amount. Please enter a positive number.");
-    }
-
-    if (!fromCurrency || !toCurrency) {
-      throw new Error("Missing currency codes. Please provide valid 'from' and 'to' currencies.");
-    }
-
-    // Fetch exchange rates dynamically for the base currency
-    const url = `https://v6.exchangerate-api.com/v6/${API_KEY}/latest/${fromCurrency}`;
-    console.log(`Fetching exchange rates from: ${url}`); // Debugging log
-
-    const response = await axios.get(url);
-
-    if (response.data.result !== "success") {
-      throw new Error(`API Error: ${response.data["error-type"] || "Failed to fetch exchange rates."}`);
-    }
-
-    const rates = response.data.conversion_rates;
-    console.log("Rates received:", rates); // Debugging log
-
-    if (!rates[toCurrency]) {
-      throw new Error(`Exchange rate for ${toCurrency} not found.`);
-    }
-
-    // Convert the amount
-    const convertedAmount = amount * rates[toCurrency];
-    console.log(`Converted Amount: ${convertedAmount}`); // Debugging log
-
-    return Number(convertedAmount.toFixed(2));
+    const response = await axios.get(`https://v6.exchangerate-api.com/v6/${API_KEY}/latest/${BASE_CURRENCY}`);
+    return response.data.conversion_rates[currency] || 1; 
   } catch (error) {
-    console.error("Currency conversion error:", error.message);
-    return null;
+    console.error("Error fetching exchange rate:", error);
+    return 1;
   }
 };
 
-module.exports = { convertCurrency };
+module.exports = { getExchangeRate }; // Export using module.exports
