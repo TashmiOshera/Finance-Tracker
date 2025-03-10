@@ -12,4 +12,4 @@ const getExchangeRate = async (currency) => {
   }
 };
 
-module.exports = { getExchangeRate }; // Export using module.exports
+module.exports = { getExchangeRate }; 

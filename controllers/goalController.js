@@ -1,9 +1,20 @@
 const Goal = require('../models/Goal');
 const { checkGoalDeadlines } = require("../controllers/notificationController");
 
-// ✅ Add a financial goal with validation
+
+
+
+// calculate progress percentage
+const calculateProgress = (currentAmount, targetAmount) => {
+  if (targetAmount <= 0) return 0;  
+  const progress = (currentAmount / targetAmount) * 100;
+  return Math.min(progress, 100);  
+};
+
+
+// Add a financial goal 
 const addGoal = async (req, res) => {
-  console.log(req.body);  // Log the request body to check if the fields are present
+  console.log(req.body);  
 
   const { name, targetAmount, deadline, currentAmount } = req.body;
 
@@ -12,7 +23,7 @@ const addGoal = async (req, res) => {
   }
 
   try {
-    // Ensure deadline is a valid future date
+    //  deadline is a valid future date
     const deadlineDate = new Date(deadline);
     if (isNaN(deadlineDate) || deadlineDate < new Date()) {
       return res.status(400).json({ message: "Invalid deadline. Please provide a future date." });
@@ -36,26 +47,31 @@ const addGoal = async (req, res) => {
       console.error("⚠️ Failed to check goal deadlines:", err.message);
     }
 
-    // Send success response
-    res.status(201).json({ message: "Financial goal added successfully", goal });
-  } catch (error) {
-    console.error("❌ Error adding goal:", error.message);
-    res.status(500).json({ message: "Server error", error: error.message });
-  }
-};
+      // Send success response
+      const progress = calculateProgress(goal.currentAmount, goal.targetAmount);
+
+      res.status(201).json({
+        message: "Financial goal added successfully",
+        goal,
+        progress
+      });
+    } catch (error) {
+      console.error("❌ Error adding goal:", error.message);
+      res.status(500).json({ message: "Server error", error: error.message });
+    }
+  };
 
 
-
-// ✅ Get all financial goals for the authenticated user
+//  Get all financial goals for the authenticated user
 const getGoals = async (req, res) => {
   try {
     const goals = await Goal.find({ userId: req.user._id });
 
-    // ✅ Prevent division by zero in progress calculation
+    //  Prevent division by zero in progress calculation
     const goalsWithProgress = goals.map(goal => ({
-      ...goal._doc, // Spread goal data
+      ...goal._doc, 
       progress: goal.targetAmount > 0 
-        ? Math.min(((goal.currentAmount / goal.targetAmount) * 100).toFixed(2), 100) // Ensure max 100%
+        ? Math.min(((goal.currentAmount / goal.targetAmount) * 100).toFixed(2), 100) 
         : 0
     }));
 
@@ -66,4 +82,48 @@ const getGoals = async (req, res) => {
   }
 };
 
-module.exports = { addGoal, getGoals };
+// Update a goal by ID
+const updateGoal = async (req, res) => {
+  const { id } = req.params;
+  const { name, targetAmount, currentAmount, deadline } = req.body;
+
+  try {
+    
+    const goal = await Goal.findByIdAndUpdate(id, { name, targetAmount, currentAmount, deadline }, { new: true });
+
+    if (!goal) {
+      return res.status(404).json({ message: "Goal not found" });
+    }
+
+    // Calculate updated progress
+    const progress = calculateProgress(goal.currentAmount, goal.targetAmount);
+
+    res.status(200).json({
+      message: "Goal updated successfully",
+      goal,
+      progress
+    });
+  } catch (error) {
+    console.error("❌ Error updating goal:", error.message);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+//  Delete a goal by ID
+const deleteGoal = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const goal = await Goal.findByIdAndDelete(id);
+
+    if (!goal) {
+      return res.status(404).json({ message: "Goal not found" });
+    }
+
+    res.status(200).json({ message: "Goal deleted successfully" });
+  } catch (error) {
+    console.error("❌ Error deleting goal:", error.message);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+module.exports = { addGoal, getGoals, updateGoal, deleteGoal };

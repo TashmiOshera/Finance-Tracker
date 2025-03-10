@@ -18,7 +18,7 @@ const registerUser = async (req, res) => {
       name,
       email,
       password,
-      role: role || 'user', // Default to 'user' if role is not provided
+      role: role || 'user', 
     });
 
     // Hash the password before saving

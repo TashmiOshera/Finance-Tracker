@@ -1,21 +1,25 @@
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 
 const notificationSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
   category: { type: String, required: true },
   message: { type: String, required: true },
-  limit: { type: Number, required: true },
-  totalSpent: { type: Number, required: true },
-  balanceAfterSpending: { type: Number, required: true },
+  limit: { type: Number },
+  totalSpent: { type: Number },
+  balanceAfterSpending: { type: Number },
   date: { type: Date, default: Date.now },
-  type: { type: String, enum: ["budget", "recurring"], required: true },
+  type: { 
+    type: String, 
+    enum: ["budget", "recurring", "goal", "budget_exceeded"], 
+    required: true 
+  },
   recurringDetails: {
     transactionId: { type: mongoose.Schema.Types.ObjectId, ref: "Transaction" },
     status: { type: String, enum: ["upcoming", "missed"], default: "upcoming" },
-    taskName: { type: String },  // Task name or description
-    amount: { type: Number },  // Amount for recurring transaction
-    nextDueDate: { type: Date } // Add due date field here
+    taskName: { type: String },
+    amount: { type: Number },
+    nextDueDate: { type: Date }
   }
 });
 
-module.exports = mongoose.model('Notification', notificationSchema);
+module.exports = mongoose.model("Notification", notificationSchema);

@@ -48,7 +48,7 @@ const updateSystemSettings = async (req, res) => {
   }
 };
 
-// ✅ Ensure proper export
+
 module.exports = {
   createSystemSettings,
   getSystemSettings,

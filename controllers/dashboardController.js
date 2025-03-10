@@ -15,6 +15,7 @@ const getDashboardData = async (req, res) => {
         { $group: { _id: null, total: { $sum: "$amount" } } }
       ]);
 
+
       // Fetch admin notifications
       const adminNotifications = await Notification.find({ recipientRole: 'admin' });
 
@@ -27,26 +28,26 @@ const getDashboardData = async (req, res) => {
       });
 
     } else {
-      // Fetch only the logged-in user's transaction summary
+      // only the logged-in user's transaction summary
       const userTransactions = await Transaction.find({ userId: req.user.id });
       const totalSpent = userTransactions.reduce((acc, t) => acc + t.amount, 0);
 
-      // Fetch user-specific financial goals
+      // user-specific financial goals
       const userGoals = await Goal.find({ userId: req.user.id });
 
-      // Fetch user-specific budgets
+      // user-specific budgets
       const userBudgets = await Budget.find({ userId: req.user.id });
 
-      // Fetch user-specific notifications
+      // user-specific notifications
       const userNotifications = await Notification.find({ userId: req.user.id });
 
       return res.json({
         role: 'user',
         totalTransactions: userTransactions.length,
         totalSpent,
-        goals: userGoals, // Add goals to the response
-        budgets: userBudgets, // Add budgets to the response
-        notifications: userNotifications, // Add notifications for the user
+        goals: userGoals, 
+        budgets: userBudgets, 
+        notifications: userNotifications, 
       });
     }
   } catch (error) {

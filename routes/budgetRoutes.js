@@ -5,17 +5,28 @@ const {
   deleteBudgetByCategory,
   updateBudget,
   getBudgetByCategory,
-  getBudgetRecommendations, // Added budget recommendation function
+  getBudgetRecommendations, 
 } = require('../controllers/budgetController');
 const { protect } = require('../middleware/auth');
 
 const router = express.Router();
 
-router.post('/', protect, createBudget); // Create or update budget
-router.get('/', protect, getUserBudgets); // Get all budgets for user
-router.get('/recommendations', protect, getBudgetRecommendations); // ✅ Added budget recommendations route
+// 1. Create or update budget
+router.post('/', protect, createBudget); 
+
+// 2. Get all budgets for user
+router.get('/', protect, getUserBudgets);
+
+// 3. Get budget recommendations
+router.get('/recommendations', protect, getBudgetRecommendations); 
+
+// 4. Get budget by category
 router.get('/category/:category', protect, getBudgetByCategory);
+
+// 5. Delete budget by category
 router.delete('/category/:category', protect, deleteBudgetByCategory);
-router.put('/:id', protect, updateBudget); // Update budget
+
+// 6. Update budget by ID
+router.put('/:id', protect, updateBudget);
 
 module.exports = router;

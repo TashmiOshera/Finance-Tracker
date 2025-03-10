@@ -1,6 +1,5 @@
-// Usage of the function (Example)
 
-// Add a new transaction (Regular User)
+
 const Transaction = require("../models/Transaction");
 const Budget = require("../models/Budget");
 const User = require("../models/User");
@@ -77,7 +76,7 @@ const addTransaction = async (req, res) => {
       totalSavings.length > 0 ? totalSavings[0].totalAmount : 0;
     const remainingBalance = amount - savingsAmount;
 
-    // Send Email Notification
+    // Send Email Notification for the transaction
     const user = await User.findById(req.user.id);
     if (user && user.email) {
       await SendEmail(
@@ -103,6 +102,52 @@ Best regards,
       );
     }
 
+    if (type === "expense") {
+      const budget = await Budget.findOne({ userId: req.user.id, category });
+      if (budget) {
+        const newTotalSpent = (budget.totalSpent || 0) + amount;
+        budget.totalSpent = newTotalSpent;
+        budget.balance = budget.limit - newTotalSpent;
+        await budget.save();
+
+        if (newTotalSpent > budget.limit) {
+          const balanceAfterSpending = budget.limit - newTotalSpent;
+
+          // Create and save the notification for the user
+          const notificationMessage = `Warning!!! ${user.name}, you exceeded your ${category} budget! Limit: LKR ${budget.limit}, Spent: LKR ${newTotalSpent}, Balance: LKR ${balanceAfterSpending}`;
+          const notification = new Notification({
+            userId: req.user.id,
+            category,
+            message: notificationMessage,
+            limit: budget.limit,
+            totalSpent: newTotalSpent,
+            balanceAfterSpending,
+          });
+          await notification.save();
+
+          // Send email notification
+          if (user && user.email) {
+            await SendEmail(
+              user.email,
+              "⚠️ Budget Alert - Spending Limit Exceeded",
+              `Dear ${user.name},
+
+You have exceeded your budget for the category '${category}'.
+
+💰 Budget Limit: LKR ${budget.limit}
+🛒 Total Spent: LKR ${newTotalSpent}
+💸 Remaining Balance: LKR ${balanceAfterSpending}
+
+Please review your spending and consider adjusting your budget.
+
+Best regards,  
+*Your Finance Tracker Team*`
+            );
+          }
+        }
+      }
+    }
+
     res.status(201).json({
       message: "Transaction added successfully",
       transaction: {
@@ -117,6 +162,7 @@ Best regards,
 };
 
 module.exports = { addTransaction };
+
 
 // Edit a transaction
 const editTransaction = async (req, res) => {

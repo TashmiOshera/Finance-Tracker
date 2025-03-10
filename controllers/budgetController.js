@@ -1,40 +1,44 @@
 const Budget = require('../models/Budget');
-const Transaction = require('../models/Transaction'); 
-const { checkUnusualSpending } = require("../controllers/notificationController"); 
+const Transaction = require('../models/Transaction');
+
+// check for budget notifications
+const checkBudgetNotifications = (limit, totalSpent) => {
+  let message = '';
+  const spendingRate = (totalSpent / limit) * 100;
+
+  if (spendingRate > 100) {
+    message = "You have exceeded your budget. Consider reducing expenses in this category.";
+  } else if (spendingRate > 80) {
+    message = "You are close to exceeding your budget. Monitor your spending carefully.";
+  } else if (spendingRate < 50) {
+    message = "You're spending much less than your budget. You could consider reallocating some of this budget.";
+  }
+
+  return message;
+};
 
 
-// @desc    Create a budget only if it doesn't exist
-// @route   POST /api/budgets
-// @access  Private (Only logged-in users)
-
-
-
-
+// Create Budget
 const createBudget = async (req, res) => {
   try {
     const { category, limit, period } = req.body;
 
-    // Check if required fields are provided
-    if (!category || !limit) {
+    if (!category || !limit || !period) {
       return res.status(400).json({
         success: false,
-        message: "Category and limit are required.",
+        message: "Category, limit, and period are required.",
       });
     }
 
-    // Ensure the category is valid
     const validCategories = [
-      "Food",
-      "Transportation",
-      "Entertainment",
-      "Bills",
-      "Shopping",
-      "Salary",
-      "Rent",
-      "Healthcare",
-      "Investment",
-      "Others"
+      "Food", "Transportation", "Entertainment", "Bills", "Shopping",
+      "Salary", "Rent", "Healthcare", "Investment", "Others",
+      "Utilities", "Education", "Groceries", "Travel", "Gifts",
+      "Savings", "Emergency Fund", "Insurance", "Subscriptions", "Pet Care",
+      "Childcare", "Personal Care", "Home Improvement", "Debt Repayment", 
+      "Charity", "Books", "Hobbies", "Fitness", "Events"
     ];
+    
     if (!validCategories.includes(category)) {
       return res.status(400).json({
         success: false,
@@ -42,12 +46,11 @@ const createBudget = async (req, res) => {
       });
     }
 
-    // Check if the user already has a budget for this category
-    const existingBudget = await Budget.findOne({ userId: req.user.id, category });
+    const existingBudget = await Budget.findOne({ userId: req.user.id, category, period });
     if (existingBudget) {
       return res.status(400).json({
         success: false,
-        message: `You already have a budget set for ${category}. Update or delete it first.`,
+        message: `You already have a ${period} budget set for ${category}. Update or delete it first.`,
       });
     }
 
@@ -69,74 +72,108 @@ const createBudget = async (req, res) => {
   }
 };
 
-// @desc    Get all budgets for the logged-in user
-// @route   GET /api/budgets
-// @access  Private
+
+
+//  Get User's Budgets
 const getUserBudgets = async (req, res) => {
   try {
-    const budgets = await Budget.find({ userId: req.user._id });
-    res.status(200).json(budgets);
+    const budgets = await Budget.find({ userId: req.user.id });
+    
+    if (!budgets || budgets.length === 0) {
+      return res.status(404).json({ success: false, message: "No budgets found." });
+    }
+
+    res.status(200).json({ success: true, budgets });
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(500).json({ success: false, message: "Error fetching budgets", error: error.message });
   }
 };
 
-// @desc    Update an existing budget
-// @route   PUT /api/budgets/:id
-// @access  Private
 
 
+// Update Budget
 const updateBudget = async (req, res) => {
   try {
     const { id } = req.params;
-    const { category, limit, month, year, totalSpent } = req.body; // Include totalSpent
-    const userId = req.user._id;
+    const { category, limit, totalSpent } = req.body;
+    const userId = req.user.id;
 
-    // Find the budget by ID and user
     const budget = await Budget.findOne({ _id: id, userId });
 
     if (!budget) {
-      return res.status(404).json({ message: "Budget not found or unauthorized access" });
+      return res.status(404).json({ success: false, message: "Budget not found or unauthorized access" });
     }
 
-    // Ensure the category remains the same
     if (category && category !== budget.category) {
-      return res.status(400).json({ message: "Category cannot be changed" });
+      return res.status(400).json({ success: false, message: "Category cannot be changed" });
     }
 
-    // Validate limit and totalSpent to be positive numbers
-    if (limit < 0 || totalSpent < 0) {
-      return res.status(400).json({ message: "Limit and totalSpent must be positive numbers" });
-    }
+
+
 
     // Update allowed fields
     budget.limit = limit !== undefined ? limit : budget.limit;
-    budget.month = month !== undefined ? month : budget.month;
-    budget.year = year !== undefined ? year : budget.year;
+    budget.totalSpent = totalSpent !== undefined ? totalSpent : budget.totalSpent;
 
-    // If totalSpent is provided, update it
-    if (totalSpent !== undefined) {
-      budget.totalSpent = totalSpent;
-    }
-
-    // Recalculate balance after updates
+    // Recalculate balance
     budget.balance = budget.limit - budget.totalSpent;
 
-    // Call the checkUnusualSpending function after updating totalSpent
-    await checkUnusualSpending(userId, budget.category, budget.totalSpent);
+    // Check for notifications
+    const notificationMessage = checkBudgetNotifications(budget.limit, budget.totalSpent);
 
-    // Save the updated budget
+    // Optionally, send this notification via email or other channels
+    console.log(`Notification for User ${userId}: ${notificationMessage}`);
+
     await budget.save();
-    
-    // Send a successful response with the updated budget
-    res.status(200).json({ message: "Budget updated successfully", budget });
+    res.status(200).json({ success: true, message: "Budget updated successfully", budget, notification: notificationMessage });
   } catch (error) {
     console.error("Error updating budget:", error.message);
-    res.status(500).json({ message: "Server error", error: error.message });
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
   }
 };
 
 
+
+// Delete Budget by Category
+const deleteBudgetByCategory = async (req, res) => {
+  try {
+    const { category } = req.params;
+    const userId = req.user.id;
+
+    const budget = await Budget.findOneAndDelete({ userId, category });
+
+    if (!budget) {
+      return res.status(404).json({ success: false, message: `No budget found for category: ${category}` });
+    }
+
+    res.status(200).json({ success: true, message: `Budget for category ${category} deleted successfully` });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Error deleting budget", error: error.message });
+  }
+};
+
+
+// Get Budget by Category
+const getBudgetByCategory = async (req, res) => {
+  try {
+    const { category } = req.params;
+    const userId = req.user.id;
+
+    const budget = await Budget.findOne({ userId, category });
+
+    if (!budget) {
+      return res.status(404).json({ success: false, message: `No budget found for category: ${category}` });
+    }
+
+    res.status(200).json({ success: true, budget });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Error fetching budget", error: error.message });
+  }
+};
+
+
+
+// Get Budget Recommendations
 const getBudgetRecommendations = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -144,23 +181,15 @@ const getBudgetRecommendations = async (req, res) => {
     const transactions = await Transaction.find({ userId });
 
     if (!budgets.length) {
-      return res.status(404).json({ message: "No budgets found." });
+      return res.status(404).json({ success: false, message: "No budgets found." });
     }
 
     let recommendations = [];
 
     budgets.forEach((budget) => {
-      // Filter transactions related to this budget category
-      const relatedTransactions = transactions.filter(
-        (tx) => tx.category === budget.category && tx.type === "expense"
-      );
+      const relatedTransactions = transactions.filter(tx => tx.category === budget.category && tx.type === "expense");
 
-      // Calculate total spent in the current period
-      const totalSpent = relatedTransactions.reduce(
-        (sum, tx) => sum + tx.amount,
-        0
-      );
-
+      const totalSpent = relatedTransactions.reduce((sum, tx) => sum + tx.amount, 0);
       const spendingRate = (totalSpent / budget.limit) * 100;
 
       let recommendation = {
@@ -172,63 +201,28 @@ const getBudgetRecommendations = async (req, res) => {
       };
 
       if (spendingRate > 100) {
-        recommendation.recommendation =
-          "You have exceeded your budget. Consider reducing expenses in this category.";
+        recommendation.recommendation = "You have exceeded your budget. Consider reducing expenses in this category.";
       } else if (spendingRate > 80) {
-        recommendation.recommendation =
-          "You are close to exceeding your budget. Try monitoring your expenses carefully.";
+        recommendation.recommendation = "You are close to exceeding your budget. Try monitoring your expenses carefully.";
       } else if (spendingRate < 50) {
-        recommendation.recommendation =
-          "You are spending much less than your budget. Consider adjusting it to better allocate funds.";
+        recommendation.recommendation = "You are spending much less than your budget. Consider adjusting it to better allocate funds.";
       }
 
       recommendations.push(recommendation);
     });
 
-    res.status(200).json({ recommendations });
+    res.status(200).json({ success: true, recommendations });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: "Server error", error: error.message });
-  }
-};
-const deleteBudgetByCategory = async (req, res) => {
-  try {
-    const { category } = req.params;
-    const userId = req.user._id;
-
-    // Find and delete the budget for the user in the given category
-    const deletedBudget = await Budget.findOneAndDelete({ userId, category });
-
-    if (!deletedBudget) {
-      return res.status(404).json({ message: "Budget not found for the given category" });
-    }
-
-    res.status(200).json({ message: "Budget deleted successfully", deletedBudget });
-  } catch (error) {
-    console.error("Error deleting budget:", error.message);
-    res.status(500).json({ message: "Server error", error: error.message });
-  }
-};
-const getBudgetByCategory = async (req, res) => {
-  try {
-    const { category } = req.params;
-    const userId = req.user._id;
-
-    // Find the budget for the user in the given category
-    const budget = await Budget.findOne({ userId, category });
-
-    if (!budget) {
-      return res.status(404).json({ message: "Budget not found for the given category" });
-    }
-
-    res.status(200).json({ budget });
-  } catch (error) {
-    console.error("Error fetching budget:", error.message);
-    res.status(500).json({ message: "Server error", error: error.message });
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
   }
 };
 
-
-
-
-module.exports = { createBudget, getUserBudgets, updateBudget, deleteBudgetByCategory,getBudgetByCategory,getBudgetRecommendations};
+module.exports = {
+  createBudget,
+  getUserBudgets,
+  updateBudget,
+  deleteBudgetByCategory,
+  getBudgetByCategory,
+  getBudgetRecommendations,
+};

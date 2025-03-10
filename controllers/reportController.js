@@ -1,30 +1,46 @@
 const Transaction = require('../models/Transaction');
 
-// @desc Get financial report
-// @route GET /api/reports
-// @access Private (Regular users)
+//  Get financial report
+
 const getFinancialReport = async (req, res) => {
   try {
-    const { startDate, endDate } = req.query; // Date filters from request
-    const userId = req.user._id; // Authenticated user
+    const { startDate, endDate, category, tags } = req.query; // Extracting filters from request
+    const userId = req.user._id; // Authenticated user ID
 
+    // Initialize filter object
     const filter = { userId };
+
+    // Apply date range filter if provided
     if (startDate && endDate) {
       filter.date = { $gte: new Date(startDate), $lte: new Date(endDate) };
     }
 
-    // Fetch transactions
+    // Apply category filter if provided
+    if (category) {
+      filter.category = category;
+    }
+
+    // Apply tags filter if provided (assuming tags are stored as an array in the DB)
+    if (tags) {
+      const tagArray = tags.split(',').map(tag => tag.trim());
+      filter.tags = { $in: tagArray };
+    }
+
+    // Fetch filtered transactions
     const transactions = await Transaction.find(filter);
 
-    // Categorize income & expenses
+    // Initialize summary variables
     let totalIncome = 0;
     let totalExpense = 0;
     const categorySummary = {};
 
     transactions.forEach((txn) => {
+      // Initialize category if not present
       if (!categorySummary[txn.category]) {
         categorySummary[txn.category] = { income: 0, expense: 0 };
       }
+
+      // Categorize transactions
       if (txn.type === 'income') {
         categorySummary[txn.category].income += txn.amount;
         totalIncome += txn.amount;
@@ -34,6 +50,7 @@ const getFinancialReport = async (req, res) => {
       }
     });
 
+    // Send response
     res.status(200).json({
       totalIncome,
       totalExpense,

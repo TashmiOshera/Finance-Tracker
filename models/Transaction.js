@@ -16,7 +16,10 @@ const categories = [
   "Healthcare",
   "Investment",
   "Others",
+  "Hobbies",
+  "Books",
   "Savings",
+  "Fitness",
 ];
 
 // List of valid recurrence patterns
