@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 const axios = require("axios");
-const { convertCurrency } = require("../utils/currencyConverter"); // Adjust path
+const { convertCurrency } = require("../utils/currencyConverter"); // Adjust path to your utility file
 
 const API_KEY = "f0c2f100eeff2a348e2118fc";
 
@@ -16,6 +16,7 @@ const categories = [
   "Healthcare",
   "Investment",
   "Others",
+  "Savings",
 ];
 
 // List of valid recurrence patterns
@@ -99,16 +100,13 @@ const transactionSchema = mongoose.Schema(
   }
 );
 
-
+// Middleware to handle currency conversion and calculate converted amount
 transactionSchema.pre("save", function (next) {
   this.convertedAmount = this.currency === "LKR" ? this.amount : this.amount * this.exchangeRate;
-  next();
+  next();
 });
 
-
-
-
-// Middleware to handle recurring transactions and currency conversion
+// Middleware to handle recurring transactions and currency conversion, and automatic savings allocation
 transactionSchema.pre("save", async function (next) {
   try {
     // Fetch the user’s base currency from the User model
@@ -120,10 +118,6 @@ transactionSchema.pre("save", async function (next) {
     } else {
       this.baseCurrency = user.baseCurrency || "USD"; // Default if not set
     }
-
-
-
-
 
     // Ensure recurrence object is always initialized
     if (this.isRecurring) {
@@ -154,7 +148,29 @@ transactionSchema.pre("save", async function (next) {
       this.recurrence = undefined; // Remove recurrence if not enabled
     }
 
+    // Automatic savings allocation if the transaction type is "income"
+    if (this.type === "income") {
+      const savingsPercentage = 10; // Define savings percentage (e.g., 10%)
+      const savingsAmount = (this.amount * savingsPercentage) / 100;
 
+      if (savingsAmount > 0) {
+        // Create a new savings transaction
+        const savingsTransaction = new mongoose.model("Transaction")({
+          userId: this.userId,
+          type: "expense", // Treat savings as an expense
+          category: "Savings", // Allocate to the Savings category
+          amount: savingsAmount,
+          transactionCurrency: this.transactionCurrency,
+          note: "Automatic savings allocation from income",
+        });
+
+        // Save the savings transaction
+        await savingsTransaction.save();
+      }
+    }
+
+    // Convert the amount if necessary
+    this.convertedAmount = this.currency === "LKR" ? this.amount : this.amount * this.exchangeRate;
 
     next();
   } catch (error) {
@@ -163,12 +179,7 @@ transactionSchema.pre("save", async function (next) {
   }
 });
 
-
-
-
-
-
-// Function to calculate the next due date
+// Function to calculate the next due date for recurring transactions
 function calculateNextDueDate(pattern, currentDate) {
   const date = new Date(currentDate);
   switch (pattern) {

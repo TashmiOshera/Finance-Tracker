@@ -1,6 +1,6 @@
 const express = require('express');
 const Notification = require('../models/Notification');
-const { protect } = require('../middleware/auth');
+const { protect } = require('../middleware/auth'); // Assuming 'protect' middleware authenticates the user
 const router = express.Router();
 
 // Get all notifications for the logged-in user

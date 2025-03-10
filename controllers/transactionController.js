@@ -1,14 +1,16 @@
+// Usage of the function (Example)
+
+// Add a new transaction (Regular User)
 const Transaction = require("../models/Transaction");
 const Budget = require("../models/Budget");
 const User = require("../models/User");
 const Notification = require("../models/Notification");
 const Goal = require("../models/Goal");
-const axios = require("axios"); // Ensure axios is imported
-const { getExchangeRate } = require("../utils/currencyConverter.js"); // Use require instead of import
+const axios = require("axios");
+const Savings = require("../models/Savings.js");
+const { SendEmail } = require("../utils/emailService.js"); // Use destructuring
+const { getExchangeRate } = require("../utils/currencyConverter.js");
 
-// Usage of the function (Example)
-
-// Add a new transaction (Regular User)
 const addTransaction = async (req, res) => {
   const {
     type,
@@ -54,9 +56,51 @@ const addTransaction = async (req, res) => {
 
     await transaction.save();
 
-    // If it's an income transaction, allocate a portion to savings automatically
+    // Handle Savings
+    let savingsAmount = 0;
     if (type === "income") {
-      await allocateSavings(req.user.id, convertedAmount);
+      savingsAmount = amount * 0.2; // 20% Allocation
+      const savings = new Savings({
+        userId: req.user.id,
+        amount: savingsAmount,
+      });
+      await savings.save();
+    }
+
+    // Calculate total savings
+    const totalSavings = await Savings.aggregate([
+      { $match: { userId: req.user.id } },
+      { $group: { _id: null, totalAmount: { $sum: "$amount" } } },
+    ]);
+
+    const totalSavingsAmount =
+      totalSavings.length > 0 ? totalSavings[0].totalAmount : 0;
+    const remainingBalance = amount - savingsAmount;
+
+    // Send Email Notification
+    const user = await User.findById(req.user.id);
+    if (user && user.email) {
+      await SendEmail(
+        user.email,
+        "💰 Transaction Update - Currency Conversion Included",
+        `Dear ${user.name},
+
+Your recent transaction has been successfully recorded.
+
+🔹 *Amount:* ${amount} ${transactionCurrency}
+🔹 *Exchange Rate:* ${exchangeRate}
+🔹 *Converted Amount (LKR):* ${convertedAmount.toLocaleString()}
+
+We've successfully allocated *LKR ${savingsAmount.toLocaleString()}* from your income to savings.
+        
+🔹 *New Savings Allocation:* LKR ${savingsAmount.toLocaleString()}
+🔹 *Remaining Balance:* LKR ${remainingBalance.toLocaleString()}
+
+Recurring income allocation has been scheduled if applicable.
+
+Best regards,  
+*Your Finance Tracker Team*`
+      );
     }
 
     res.status(201).json({
@@ -67,60 +111,12 @@ const addTransaction = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error adding transaction:", error.message);
+    console.error("❌ Error adding transaction:", error.message);
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
 
-// Function to allocate savings from income transactions
-const allocateSavings = async (userId, incomeAmount) => {
-  try {
-    const savingsPercentage = 0.1; // Allocate 10% of income to savings
-    const savingsAmount = incomeAmount * savingsPercentage;
-
-    // Find user's active savings goals
-    const goals = await Goal.find({ userId });
-
-    if (goals.length === 0) {
-      console.log("No savings goals found for user.");
-      return; // No goals available to allocate savings
-    }
-
-    const allocationPerGoal = savingsAmount / goals.length;
-
-    for (let goal of goals) {
-      goal.currentAmount += allocationPerGoal;
-      await goal.save();
-    }
-
-    // Create a savings transaction entry
-    const savingsTransaction = new Transaction({
-      userId,
-      type: "expense", // Treat savings as an expense to track
-      category: "Savings",
-      amount: savingsAmount,
-      transactionCurrency: "USD", // Defaulting to USD, adjust if needed
-      date: new Date(),
-      note: "Automated savings allocation",
-    });
-
-    await savingsTransaction.save();
-
-    // Send a notification to the user
-    const notification = new Notification({
-      userId,
-      message: `An amount of $${savingsAmount.toFixed(
-        2
-      )} has been automatically allocated to your savings goals.`,
-    });
-
-    await notification.save();
-
-    console.log("Savings allocated successfully.");
-  } catch (error) {
-    console.error("Error allocating savings:", error.message);
-  }
-};
+module.exports = { addTransaction };
 
 // Edit a transaction
 const editTransaction = async (req, res) => {

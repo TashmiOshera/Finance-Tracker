@@ -68,7 +68,7 @@ const checkGoalDeadlines = async (userId) => {
 
       console.log(`Goal "${goal.name}" deadline is in ${Math.ceil(timeDifference / (24 * 60 * 60 * 1000))} days.`);
 
-      if (timeDifference <= 7 * 24 * 60 * 60 * 1000) {
+      if (timeDifference <= 7 * 24 * 60 * 60 * 1000 && timeDifference > 0) {
         console.log(`User ${userId}: Your goal "${goal.name}" is nearing its deadline!`);
         await Notification.create({
           userId,
@@ -87,60 +87,78 @@ const checkGoalDeadlines = async (userId) => {
 };
 
 // Function to check for upcoming or missed recurring transactions
-// Function to check for upcoming or missed recurring transactions
-// Function to check for upcoming or missed recurring transactions
 const checkRecurringTransactions = async (userId) => {
   try {
+    // Fetch recurring transactions for the user
     const transactions = await Transaction.find({ userId, isRecurring: true });
+
     if (!transactions.length) {
       console.log(`No recurring transactions found for user ${userId}`);
       return;
     }
 
     const currentDate = new Date();
+    currentDate.setHours(0, 0, 0, 0); // Normalize current date to midnight
+
     console.log(`Current date: ${currentDate.toDateString()}`);
 
     for (let transaction of transactions) {
+      // Ensure the recurrence and nextDueDate are valid
       if (!transaction.recurrence || !transaction.recurrence.nextDueDate) {
         console.log(`No next due date found for transaction ${transaction._id}`);
         continue;
       }
-      
+
       const nextDueDate = new Date(transaction.recurrence.nextDueDate);
-      console.log(`Transaction category: ${transaction.category}, Next due date: ${nextDueDate.toDateString()}`);
+      nextDueDate.setHours(0, 0, 0, 0); // Normalize the next due date
 
-      // Check if the recurring transaction is upcoming
-      if (nextDueDate > currentDate && (nextDueDate - currentDate) <= 7 * 24 * 60 * 60 * 1000) {
-        console.log(`User ${userId}: Upcoming recurring transaction for ${transaction.category}`);
-
-        await Notification.create({
-          userId,
-          category: "Recurring Transaction",
-          message: `Reminder: You have an upcoming recurring transaction for ${transaction.category} on ${nextDueDate.toDateString()}.`,
-          date: nextDueDate,
-          type: "recurring",  // Added the type field
-          recurringDetails: {
-            transactionId: transaction._id,
-            status: "upcoming"
-          }
-        });
-        console.log("Upcoming recurring transaction notification saved successfully.");
+      // Ensure nextDueDate is a valid date
+      if (isNaN(nextDueDate.getTime())) {
+        console.log(`Invalid next due date for transaction ${transaction._id}`);
+        continue;
       }
 
-      // Check if the recurring transaction was missed
-      if (nextDueDate < currentDate) {
-        console.log(`User ${userId}: Missed recurring transaction for ${transaction.category}`);
+      const daysUntilDue = Math.ceil((nextDueDate - currentDate) / (24 * 60 * 60 * 1000));
 
+      console.log(
+        `Transaction category: ${transaction.category}, Next due date: ${nextDueDate.toDateString()}, Days until due: ${daysUntilDue}`
+      );
+
+      // Check if the transaction is upcoming (within the next 7 days)
+      if (daysUntilDue > 0 && daysUntilDue <= 7) {
+        console.log(`User ${userId}: Upcoming recurring transaction for ${transaction.category} in ${daysUntilDue} days.`);
+
+        // Create a notification for upcoming recurring transaction
         await Notification.create({
           userId,
           category: "Recurring Transaction",
-          message: `You have a missed recurring transaction for ${transaction.category}. Please take action.`,
+          message: `Reminder: You have an upcoming recurring transaction for ${transaction.category} worth ${transaction.amount} on ${nextDueDate.toDateString()}.`,
           date: nextDueDate,
-          type: "recurring",  // Added the type field
+          type: "recurring",
           recurringDetails: {
             transactionId: transaction._id,
-            status: "missed"
-          }
+            status: "upcoming", // Ensure the status is set correctly
+            taskName: transaction.name || transaction.description || "Recurring Task",  // Add task name or description
+            amount: transaction.amount,  // Add amount to the notification
+            nextDueDate: nextDueDate // Add the due date to the notification
+          },
+        });
+        console.log("Upcoming recurring transaction notification saved successfully.");
+
+        // Create a notification for missed recurring transaction
+        await Notification.create({
+          userId,
+          category: "Recurring Transaction",
+          message: `You have a missed recurring transaction for ${transaction.category} worth ${transaction.amount}. Please take action.`,
+          date: nextDueDate,
+          type: "recurring",
+          recurringDetails: {
+            transactionId: transaction._id,
+            status: "missed", // Ensure the status is set correctly
+            taskName: transaction.name || transaction.description || "Recurring Task",  // Add task name or description
+            amount: transaction.amount,  // Add amount to the notification
+            nextDueDate: nextDueDate // Add the due date to the notification
+          },
         });
         console.log("Missed recurring transaction notification saved successfully.");
       }

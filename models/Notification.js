@@ -11,7 +11,10 @@ const notificationSchema = new mongoose.Schema({
   type: { type: String, enum: ["budget", "recurring"], required: true },
   recurringDetails: {
     transactionId: { type: mongoose.Schema.Types.ObjectId, ref: "Transaction" },
-    status: { type: String, enum: ["upcoming", "missed"], default: "upcoming" }
+    status: { type: String, enum: ["upcoming", "missed"], default: "upcoming" },
+    taskName: { type: String },  // Task name or description
+    amount: { type: Number },  // Amount for recurring transaction
+    nextDueDate: { type: Date } // Add due date field here
   }
 });
 
