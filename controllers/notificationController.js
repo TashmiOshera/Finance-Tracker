@@ -6,75 +6,102 @@ const Transaction = require("../models/Transaction");
 
 const checkUnusualSpending = async (userId, category, totalSpent) => {
   try {
+    console.log("🔍 Checking unusual spending for:", { userId, category, totalSpent });
+
     const budget = await Budget.findOne({ userId, category });
-    if (!budget) return;
+
+    if (!budget) {
+      console.log("🚨 No budget found for this category.");
+      return;
+    }
+
+    console.log("📊 Budget details:", budget);
 
     const { limit } = budget;
     const balanceAfterSpending = limit - totalSpent;
 
     if (totalSpent > limit * 0.8 && totalSpent <= limit) {
-      await Notification.create({
+      console.log("⚠️ Warning: Spending over 80% of budget!");
+
+      const notification = await Notification.create({
         userId,
         category,
         message: `You have spent over 80% of your budget for ${category}.`,
         limit,
         totalSpent,
         balanceAfterSpending,
-        type: "budget",
+        type: "budget_exceeded",
       });
+
+      console.log("✅ 80% budget warning notification created:", notification);
     }
 
     if (totalSpent > limit) {
-      await Notification.create({
+      console.log("🚨 Budget exceeded! Sending notification.");
+
+      const notification = await Notification.create({
         userId,
         category,
         message: `You have exceeded your budget for ${category} by ${totalSpent - limit}.`,
         limit,
         totalSpent,
         balanceAfterSpending,
-        type: "budget",
+        type: "budget_exceeded",
       });
+
+      console.log("✅ Budget exceeded notification created:", notification);
     }
   } catch (error) {
-    console.error("Error checking unusual spending:", error.message);
+    console.error("❌ Error in checkUnusualSpending:", error.message);
   }
 };
 
 
-
 const checkGoalDeadlines = async (userId) => {
   try {
+    console.log(`🔍 Checking goal deadlines for User: ${userId}`);
+
     const goals = await Goal.find({ userId });
-    if (!goals.length) return;
+    if (!goals.length) {
+      console.log("🚨 No goals found.");
+      return;
+    }
 
     const currentDate = new Date();
 
     for (let goal of goals) {
       const deadline = new Date(goal.deadline);
-      const timeDifference = deadline - currentDate;
-      const daysLeft = Math.ceil(timeDifference / (24 * 60 * 60 * 1000));
+      const daysLeft = Math.ceil((deadline - currentDate) / (24 * 60 * 60 * 1000));
+
+      console.log(`📅 Goal: ${goal.name}, Deadline: ${goal.deadline}, Days Left: ${daysLeft}`);
 
       if (daysLeft <= 7 && daysLeft > 0) {
-        await Notification.create({
+        const notification = await Notification.create({
           userId,
           category: "Goal Reminder",
           message: `Your goal "${goal.name}" is due soon. You have ${daysLeft} days left.`,
           type: "goal",
         });
+
+        console.log(`✅ Goal Notification Created: ${notification}`);
       }
     }
   } catch (error) {
-    console.error("Error checking goal deadlines:", error.message);
+    console.error("❌ Error checking goal deadlines:", error.message);
   }
 };
 
 
-
 const checkRecurringTransactions = async (userId) => {
   try {
+    console.log(`🔍 Checking recurring transactions for User: ${userId}`);
+
     const transactions = await Transaction.find({ userId, isRecurring: true });
 
-    if (!transactions.length) return;
+    if (!transactions.length) {
+      console.log("🚨 No recurring transactions found.");
+      return;
+    }
 
     const currentDate = new Date();
     currentDate.setHours(0, 0, 0, 0);
@@ -87,8 +114,10 @@ const checkRecurringTransactions = async (userId) => {
 
       const daysUntilDue = Math.ceil((nextDueDate - currentDate) / (24 * 60 * 60 * 1000));
 
+      console.log(`🔄 Transaction: ${transaction.category}, Next Due: ${nextDueDate}, Days Left: ${daysUntilDue}`);
+
       if (daysUntilDue > 0 && daysUntilDue <= 7) {
-        await Notification.create({
+        const notification = await Notification.create({
           userId,
           category: "Recurring Transaction",
           message: `Upcoming transaction for ${transaction.category} in ${daysUntilDue} days.`,
@@ -101,11 +130,14 @@ const checkRecurringTransactions = async (userId) => {
             nextDueDate: nextDueDate,
           },
         });
+
+        console.log(`✅ Recurring Transaction Notification Created: ${notification}`);
       }
     }
   } catch (error) {
-    console.error("Error checking recurring transactions:", error.message);
+    console.error("❌ Error checking recurring transactions:", error.message);
   }
 };
+
 
 module.exports = { checkUnusualSpending, checkGoalDeadlines, checkRecurringTransactions };

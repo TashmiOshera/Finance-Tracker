@@ -1,8 +1,7 @@
 const express = require("express");
 const {
-  createSystemSettings,
-  getSystemSettings,
-  updateSystemSettings
+  configureSystemSettings,
+  getSystemSettings
 } = require("../controllers/systemSettingsController");
 
 const { protect } = require("../middleware/auth");
@@ -10,13 +9,10 @@ const admin = require("../middleware/admin");
 
 const router = express.Router();
 
-// Create System Settings (Admin Only)
-router.post("/", protect, admin, createSystemSettings);
+// ✅ Admin Configures System Settings (Create or Update)
+router.post("/", protect, admin, configureSystemSettings);
 
-// Get System Settings (Authenticated Users)
+// ✅ Users Can View System Settings
 router.get("/", protect, getSystemSettings);
-
-// Update System Settings (Admin Only)
-router.put("/", protect, admin, updateSystemSettings);
 
 module.exports = router;

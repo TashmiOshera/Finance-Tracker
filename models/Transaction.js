@@ -1,8 +1,4 @@
 const mongoose = require("mongoose");
-const axios = require("axios");
-const { convertCurrency } = require("../utils/currencyConverter"); // Adjust path to your utility file
-
-const API_KEY = "f0c2f100eeff2a348e2118fc";
 
 // List of valid categories for transactions
 const categories = [
@@ -25,133 +21,36 @@ const categories = [
 // List of valid recurrence patterns
 const recurrencePatterns = ["daily", "weekly", "monthly", "yearly"];
 
-const transactionSchema = mongoose.Schema(
-  {
-    userId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-      required: true,
-    },
-    type: {
-      type: String,
-      enum: ["income", "expense"],
-      required: true,
-    },
-    category: {
-      type: String,
-      enum: categories,
-      required: true,
-    },
-    amount: {
-      type: Number,
-      required: true,
-      min: [0, "Amount must be a positive number"],
-    },
-    transactionCurrency: {
-      type: String,
-      required: true,
-      default: "USD",
-    },
-    exchangeRate: {
-      type: Number,
-      default: 1,
-    },
-    convertedAmount: {
-      type: Number,
-    },
-    date: {
-      type: Date,
-      default: Date.now,
-    },
-    note: {
-      type: String,
-      maxlength: [500, "Note cannot exceed 500 characters"],
-    },
-    tags: {
-      type: [String],
-      validate: {
-        validator: function (v) {
-          return v.every((tag) => tag.startsWith("#"));
-        },
-        message: 'Tags must start with "#"',
-      },
-    },
-    isRecurring: {
-      type: Boolean,
-      default: false,
-    },
-    recurrence: {
-      pattern: {
-        type: String,
-        enum: recurrencePatterns,
-      },
-      startDate: {
-        type: Date,
-      },
-      endDate: {
-        type: Date,
-      },
-      nextDueDate: {
-        type: Date,
-      },
-    },
-  },
-  {
-    timestamps: true,
-    toJSON: { virtuals: true },
-    toObject: { virtuals: true },
-  }
-);
-
-// Middleware to handle currency conversion and calculate converted amount
-transactionSchema.pre("save", function (next) {
-  this.convertedAmount = this.currency === "LKR" ? this.amount : this.amount * this.exchangeRate;
-  next();
+const transactionSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+  amount: { type: Number, required: true },
+  type: { type: String, enum: ["income", "expense"], required: true },
+  category: { type: String, required: true, enum: categories },
+  currency: { type: String, required: true, default: "LKR" },
+  exchangeRate: { type: Number, default: 1 },
+  convertedAmount: { type: Number },
+  tags: { type: [String] },
+  recurring: { type: Boolean, default: false },
+  recurrencePattern: { type: String, enum: recurrencePatterns, default: null },
+  date: { type: Date, default: Date.now },
 });
 
-// Middleware to handle recurring transactions and currency conversion, and automatic savings allocation
+// Middleware to handle currency conversion, recurring transactions, and automatic savings allocation
 transactionSchema.pre("save", async function (next) {
   try {
     // Fetch the user’s base currency from the User model
     const user = await mongoose.model("User").findById(this.userId);
+    const baseCurrency = user ? user.baseCurrency || "USD" : "USD";
 
-    if (!user) {
-      console.warn(`User not found for ID: ${this.userId}`);
-      this.baseCurrency = "USD"; // Default to USD if user not found
-    } else {
-      this.baseCurrency = user.baseCurrency || "USD"; // Default if not set
+    // Convert the amount if necessary
+    this.convertedAmount = this.currency === "LKR" ? this.amount : this.amount * this.exchangeRate;
+
+    // Ensure recurrence is properly set
+    if (this.recurring && !this.recurrencePattern) {
+      this.recurrencePattern = "monthly"; // Default recurrence pattern
     }
 
-    // Ensure recurrence object is always initialized
-    if (this.isRecurring) {
-      if (!this.recurrence) {
-        this.recurrence = {};
-      }
-
-      // Set default values if not present
-      if (!this.recurrence.pattern) {
-        this.recurrence.pattern = "monthly"; // Default recurrence pattern
-      }
-      if (!this.recurrence.startDate) {
-        this.recurrence.startDate = this.date || new Date();
-      }
-      if (!this.recurrence.endDate) {
-        this.recurrence.endDate = new Date(this.recurrence.startDate);
-        this.recurrence.endDate.setFullYear(
-          this.recurrence.endDate.getFullYear() + 1
-        );
-      }
-      if (!this.recurrence.nextDueDate) {
-        this.recurrence.nextDueDate = calculateNextDueDate(
-          this.recurrence.pattern,
-          this.recurrence.startDate
-        );
-      }
-    } else {
-      this.recurrence = undefined; // Remove recurrence if not enabled
-    }
-
-    // Automatic savings allocation if the transaction type is "income"
+    // Automatic savings allocation if transaction type is "income"
     if (this.type === "income") {
       const savingsPercentage = 10; // Define savings percentage (e.g., 10%)
       const savingsAmount = (this.amount * savingsPercentage) / 100;
@@ -163,8 +62,11 @@ transactionSchema.pre("save", async function (next) {
           type: "expense", // Treat savings as an expense
           category: "Savings", // Allocate to the Savings category
           amount: savingsAmount,
-          transactionCurrency: this.transactionCurrency,
-          note: "Automatic savings allocation from income",
+          currency: this.currency,
+          exchangeRate: this.exchangeRate,
+          convertedAmount: savingsAmount * this.exchangeRate,
+          tags: ["Automatic Savings"],
+          date: new Date(),
         });
 
         // Save the savings transaction
@@ -172,36 +74,11 @@ transactionSchema.pre("save", async function (next) {
       }
     }
 
-    // Convert the amount if necessary
-    this.convertedAmount = this.currency === "LKR" ? this.amount : this.amount * this.exchangeRate;
-
     next();
   } catch (error) {
     console.error("Error in transaction pre-save middleware:", error);
     next(error);
   }
 });
-
-// Function to calculate the next due date for recurring transactions
-function calculateNextDueDate(pattern, currentDate) {
-  const date = new Date(currentDate);
-  switch (pattern) {
-    case "daily":
-      date.setDate(date.getDate() + 1);
-      break;
-    case "weekly":
-      date.setDate(date.getDate() + 7);
-      break;
-    case "monthly":
-      date.setMonth(date.getMonth() + 1);
-      break;
-    case "yearly":
-      date.setFullYear(date.getFullYear() + 1);
-      break;
-    default:
-      return null;
-  }
-  return date;
-}
 
 module.exports = mongoose.model("Transaction", transactionSchema);

@@ -12,6 +12,7 @@ const systemSettingsRoutes = require("./routes/settingRoutes");
 
 
 
+
 dotenv.config(); // Load environment variables
 
 const app = express();
@@ -31,7 +32,7 @@ mongoose
  app.use('/api/goals', goalRoutes);
  app.use('/api', dashboardRoutes);
  app.use("/api/settings", systemSettingsRoutes);
-
+ 
 
 
 // Sample Schema

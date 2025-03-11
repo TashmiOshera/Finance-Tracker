@@ -159,19 +159,26 @@ const getBudgetByCategory = async (req, res) => {
     const { category } = req.params;
     const userId = req.user.id;
 
-    const budget = await Budget.findOne({ userId, category });
+    console.log(`Searching for budget - UserID: ${userId}, Category: ${category}`);
+
+    const budget = await Budget.findOne({
+      userId,
+      category: { $regex: new RegExp(`^${category}$`, "i") }, // Case-insensitive search
+    });
 
     if (!budget) {
+      console.warn(`No budget found for category: ${category}`);
       return res.status(404).json({ success: false, message: `No budget found for category: ${category}` });
     }
 
+    console.log("Budget found:", budget);
     res.status(200).json({ success: true, budget });
+
   } catch (error) {
+    console.error("Error fetching budget:", error);
     res.status(500).json({ success: false, message: "Error fetching budget", error: error.message });
   }
 };
-
-
 
 // Get Budget Recommendations
 const getBudgetRecommendations = async (req, res) => {
