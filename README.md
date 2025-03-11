@@ -5,14 +5,14 @@
 The Personal Expense Tracker API is a feature-rich financial management system designed to help users track expenses, set budgets, and analyze financial trends. Built with Node.js, Express, MongoDB, and JWT authentication, it ensures secure access, real-time insights, and personalized financial tracking.
 
 🔹 Key Features
-🔐 User Roles & Authentication – Secure login with JWT, Admin & Regular User roles
-💸 Expense & Income Tracking – Add, edit, delete transactions with categories & custom tags
-📊 Budget Management – Set & track monthly or category-specific budgets with recommendations
-📑 Financial Reports – Generate spending trends, visualize income vs. expenses with charts
-🔔 Notifications & Alerts – Get spending alerts, bill reminders, and unusual activity notifications
-🎯 Goals & Savings Tracking – Set financial goals, track progress, and allocate savings automatically
-💱 Multi-Currency Support – Manage finances in different currencies with real-time exchange rates
-📌 Role-Based Dashboard – Tailored dashboards for Admins (system-wide insights) & Users (personal finance summary)
+🔐 User Roles & Authentication 
+💸 Expense & Income Tracking 
+📊 Budget Management 
+📑 Financial Reports 
+🔔 Notifications & Alerts 
+🎯 Goals & Savings Tracking 
+💱 Multi-Currency Support 
+📌 Role-Based Dashboard 
 
 
 All API END POINTS
