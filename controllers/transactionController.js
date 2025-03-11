@@ -9,6 +9,7 @@ const axios = require("axios");
 const Savings = require("../models/Savings.js");
 const { SendEmail } = require("../utils/emailService.js"); // Use destructuring
 const { getExchangeRate } = require("../utils/currencyConverter.js");
+const { scheduleRecurringTransaction } = require('../utils/transactionScheduler');
 
 const addTransaction = async (req, res) => {
   try {
